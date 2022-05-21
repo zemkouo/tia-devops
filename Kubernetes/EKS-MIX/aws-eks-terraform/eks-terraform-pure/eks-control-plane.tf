@@ -23,7 +23,7 @@ resource "aws_iam_role_policy_attachment" "amazon_eks_cluster_policy" {
 }
 
 resource "aws_eks_cluster" "eks" {
-  name     = "eks"
+  name     = var.control_plane_name
   role_arn = aws_iam_role.eks_cluster_assume_role.arn
   version  = "1.19"
 
