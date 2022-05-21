@@ -27,9 +27,9 @@ spec:
 A PersistentVolumeClaim (PVC) is a request for storage by a user. The claim can include specific storage parameters required by the application. For example, an amount of storage, or a specific type of access (RWO – ReadWriteOnce, ROX – ReadOnlyMany, RWX – ReadWriteMany, etc.).
 
 - ReadWriteOnce — the volume can be mounted as read-write by a single node
-- 
+
 - ReadOnlyMany — the volume can be mounted read-only by many nodes
-- 
+
 - ReadWriteMany — the volume can be mounted as read-write by many nodes
 
 Kubernetes looks for a PV that meets the criteria defined in the user’s PVC, and if there is one, it matches the claim to PV then it binds the PV to that PVC.
