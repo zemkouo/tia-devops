@@ -1,9 +1,117 @@
 ## Pod Disruption Budget
 [Pod Disruption Budget in kubernetes](https://www.youtube.com/watch?v=vqDDwPpe2Po)
 
-**Pod Disruption Budget**
+**Pod Disruption Budget**  ==>> a budget of voluntary disruption
+We use it to make sure that the application is not impacted by any Voluntary Disrution.
 
 An Application Owner can create a PodDisruptionBudget object (PDB) for each application. A PDB limits the number pods of a replicated application that are down simultaneously from voluntary disruptions. For example, a quorum-based application would like to ensure that the number of replicas running is never brought below the number needed for a quorum. A web front end might want to ensure that the number of replicas serving load never falls below a certain percentage of the total.
+
+## Pod Disruption Budget Type
+### Voluntary Disrution (perform by admin/owner)
+- Draining a node (repair/maintennce/upgrade)
+- Remove pods from the node to do something
+- Delete an object accindentally (pod, deploy, sts, ds)
+- Node package upgrade
+
+## Where can we use Pod Disruption Budget in K8S?
+- In deployment
+- ReplicationController
+- Replicaset
+- StatefulSet
+
+### Inoluntary Disrution (unavoidable)
+- A hadware failure
+- Amin deletes VM by mistake
+- Cloud provider/hhypervisor failre
+- Node beig out of resourced
+
+### minAvailable
+2 pods should alow be available
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  minAvailable: 2 
+  selector:
+    matchLabels:
+      run: nginx
+```
+
+### minAvailable
+- all pods should always be available
+- we cannot even upgrade the cluster because eviction pod is not allow
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      run: nginx
+
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  minAvailable: 100%
+  selector:
+    matchLabels:
+      run: nginx
+```
+
+### minAvailable
+2 pods should alow be always available
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  minAvailable: 2 
+  selector:
+    matchLabels:
+      run: nginx
+```
+
+70% of pods should alow be always available
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  minAvailable: 75% 
+  selector:
+    matchLabels:
+      run: nginx
+```
+
+### maxUnAvailable
+Only 2 pod should alow to be unavailable
+```yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: pdbdemo
+spec:
+  maxUnAvailable: 1
+  selector:
+    matchLabels:
+      run: nginx
+```
+
+### Drain command with pdb set 
+```
+kubectl drain [node name] \
+    --delete-emptydir-adta \
+    --ingnore-daemonsets
+```
+
 
 ## kubectl get all
 ```
@@ -20,6 +128,7 @@ NAME                                      DESIRED   CURRENT   READY   AGE
 replicaset.apps/nginx-deploy-598b589c46   4         4         4       5s
 ```
 ## kubectl get pdb
+kubectl describe pdb
 ```
 NAME      MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
 pdbdemo   2               N/A               2                     13s
