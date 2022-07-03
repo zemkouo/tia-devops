@@ -1,0 +1,243 @@
+bootstrap.creds: {{ (printf "%s@%s=%s" .Values.artifactory.admin.username .Values.artifactory.admin.ip .Values.artifactory.admin.password) | b64enc }}
+
+{{- if not (and .Values.artifactory.admin.secret .Values.artifactory.admin.dataKey) }}
+{{- if .Values.artifactory.admin.password }}
+
+{{- with .Values.artifactory.license.licenseKey }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ template "artifactory.fullname" $ }}-license
+  labels:
+    app: {{ template "artifactory.name" $ }}
+    chart: {{ template "artifactory.chart" $ }}
+    heritage: {{ $.Release.Service }}
+    release: {{ $.Release.Name }}
+type: Opaque
+data:
+  artifactory.lic: {{ . | b64enc | quote }}
+{{- end }}
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "artifactory.fullname" . }}-migration-scripts
+  labels:
+    app: {{ template "artifactory.name" . }}
+    chart: {{ template "artifactory.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+data:
+  migrate.sh: |
+{{ .Files.Get "files/migrate.sh" | indent 4 }}
+  migrationHelmInfo.yaml: |
+{{ .Files.Get "files/migrationHelmInfo.yaml" | indent 4 }}
+  migrationStatus.sh: |
+{{ .Files.Get "files/migrationStatus.sh" | indent 4 }}
+
+
+
+{{- range .Values.networkpolicy }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "artifactory.fullname" $ }}-{{ .name }}-networkpolicy
+  labels:
+    app: {{ template "artifactory.name" $ }}
+    chart: {{ template "artifactory.chart" $ }}
+    release: {{ $.Release.Name }}
+    heritage: {{ $.Release.Service }}  
+spec:
+{{- if .podSelector }}
+  podSelector:
+{{ .podSelector | toYaml | trimSuffix "\n" | indent 4 -}}
+{{ else }}
+  podSelector: {}
+{{- end }}
+  policyTypes:
+  {{- if .ingress }}
+  - Ingress
+  {{- end }}
+  {{- if .egress }}
+  - Egress
+  {{- end }}
+{{- if .ingress }}
+  ingress:
+{{ .ingress | toYaml | trimSuffix "\n" | indent 2 -}}
+{{- end }}
+{{- if .egress }}
+  egress:
+{{ .egress | toYaml | trimSuffix "\n" | indent 2 -}}
+{{- end }}
+---
+{{- end -}}
+
+
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ template "artifactory.fullname" . }}
+  labels:
+    app: {{ template "artifactory.name" . }}
+    chart: {{ template "artifactory.chart" . }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+type: Opaque
+data:
+  {{- if and .Values.database.password (not .Values.artifactory.awsSecrets_enabled) }}
+  db-password: {{ .Values.database.password | b64enc | quote }}
+  {{- end }}
+  {{- if and .Values.artifactory.masterKey (not .Values.artifactory.masterKeySecretName) (not .Values.artifactory.awsSecrets_enabled) }}
+  master-key: {{ .Values.artifactory.masterKey | b64enc | quote }}
+  {{- end }}
+  {{- if and .Values.artifactory.joinKey (not .Values.artifactory.joinKeySecretName) (not .Values.artifactory.awsSecrets_enabled) }}
+  join-key: {{ .Values.artifactory.joinKey | b64enc | quote }}
+  {{- end }}
+
+
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+{{- with .Values.serviceAccount.annotations }}
+  annotations:
+{{ tpl (toYaml .) $ | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ template "artifactory.name" . }}
+    chart: {{ template "artifactory.chart" . }}
+    component: {{ .Values.artifactory.name }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: {{ template "artifactory.serviceAccountName" . }}
+{{- end }}
+
+
+{{- with .Values.serviceAccount }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+{{- with .annotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+{{- end }}
+{{- with .labels }}
+  labels: {{ toYaml . | nindent 4 }}
+{{- end }}
+{{- end }}
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- if (not .Values.admissionController.tls.existingSecret) }}
+  {{- $ca := genCA (include "vertical-pod-autoscaler.admissionController.fullname" .) 365 }}
+  {{- $cn := printf "%s.%s.svc" "vpa-webhook" .Release.Namespace }}
+  {{- $cert := genSignedCert $cn nil (list $cn) 365 $ca }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vpa-tls-certs
+type: Opaque
+data:
+  caCert.pem: {{ default $ca.Cert .Values.admissionController.tls.caCert | b64enc | quote }}
+  caKey.pem: {{ default $ca.Key .Values.admissionController.tls.caCert | b64enc | quote }}
+  serverCert.pem: {{ default $cert.Cert .Values.admissionController.tls.cert | b64enc | quote }}
+  serverKey.pem: {{ default $cert.Key .Values.admissionController.tls.key | b64enc | quote }}
+  {{- end }}
+
+
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: backup-python
+data:
+    backup.py: |-
+        #!/usr/bin/python -u
+        import os
+        import smtplib
+        from email.MIMEMultipart import MIMEMultipart
+        from email.MIMEText import MIMEText
+
+        account = "{{.Values.account}}"
+        s3 = "{{.Values.s3BackupBucket}}"
+        namespace = "{{.Values.namespace}}"
+
+        def bk_function():
+            os.chdir("/tw_files/var/lib/twistlock-backup/")
+            os.system("aws s3 sync . s3://'%s'/backups " % s3 )
+
+
+        def emailfail():
+            server = smtplib.SMTP('mailgate2.lexisnexis.com',25)
+            fromaddr = "Twistlock_backuppod@localhost"
+            toaddr = "LNG-RDUCloudEngineering@ReedElsevier.com"
+            msg = MIMEMultipart()
+            msg['From'] = fromaddr
+            msg['To'] = toaddr
+            msg['Subject'] = "The " + account + ": Twistlock backup is failing"
+
+            body = "Twistlock backup is failing in " + account + " and namespace " + namespace + ", please check the backup job to see the failure"
+            msg.attach(MIMEText(body, 'plain'))
+
+            text = msg.as_string()
+            server.sendmail(fromaddr, toaddr, text)
+
+
+        try:
+            bk_function()
+        except Exception, e:
+            print(e)
+            emailfail()
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+    name: s3-backup-python
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            name: s3backup-python
+          annotations:
+            iam.amazonaws.com/role: 2624-pecs-twistlock-iam-role
+        spec:
+            serviceAccountName: twistlock-s3-backup
+            nodeSelector:
+                deployment.group: operations
+            containers:
+                - name: s3backup-python
+                  image: {{ .Values.podenv }}
+                  command:
+                      - /bin/sh
+                      - -c
+                  args: ["python backup.py"]
+                  volumeMounts:
+                      - name: backup-python
+                        mountPath: /backup.py
+                        subPath: backup.py
+                        readOnly: true
+                      - name: tw-backup
+                        mountPath: /tw_files
+                        readOnly: true
+            volumes:
+                - name: backup-python
+                  configMap:
+                      name: backup-python
+                - name: tw-backup
+                  persistentVolumeClaim:
+                    claimName: efs
+            restartPolicy: Never
+---
+
+
