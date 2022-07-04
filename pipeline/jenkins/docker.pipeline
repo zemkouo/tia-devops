@@ -1,0 +1,124 @@
+
+def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('UTC'))
+pipeline {
+    agent any
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '2', daysToKeepStr: '2'))
+        disableConcurrentBuilds()
+        timeout (time: 10, unit: 'MINUTES')
+        timestamps()
+    }
+    parameters {
+        string (name: 'branchName', defaultValue: 'main', description: 'The branch name docker image')
+        choice (name: 'pushMode', choices: 'aws-ecr\ndockerhub\nboth', description: 'Both will push the image to dockerhub and AWS ECR')
+        string (name: 'dockerhubRepo', defaultValue: 'leonardtia/devops-test-repo', description: 'The Dockerhub repository where to push the image')
+        string (name: 'tag', defaultValue: 'develop', description: 'The image name')
+
+    }
+    environment {
+        registry = 'leonardtia/devops-test-repo'
+        registryCredential = 'Docker-Hub-Credentials'
+        dockerImage = ''
+    }
+    stages {
+        stage ('checkout') {
+            steps {
+                dir("${WORKSPACE}/build") {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/main"]],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [[$class: 'LocalBranch']],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [[
+                        url: 'https://github.com/leonardtia1/tia-devops.git',
+                        credentialsId: 'tia-github-token'
+                        ]]
+                    ])
+                }
+            }
+        }
+        stage ('Building the image') {
+            steps {
+                script {
+                    dir("${WORKSPACE}/build/pipeline/docker") {
+                        docker.withRegistry('','tia-dockerhub-credentials' ) {
+                           dockerhub()
+                        }
+                    }
+
+                } 
+            }
+        }
+        // stage ('Pushing the image') {
+        //     agent {
+        //         label 'master'
+        //     }
+        //     steps {
+        //         script {
+        //             dir("${env.WORKSPACE}/build") {
+        //                 docker.withRegistry('','Docker-Hub-Credentials' ) {
+        //                     dockerImage.push()
+        //                 }
+        //             }
+        //         } 
+        //     }
+        // }
+        // stage ('Deployment') {
+        //    agent {
+        //         label 'master'
+        //     }
+        //     steps {
+        //         sh '''
+        //         sudo docker run -d -P ${registry}:${tag} 
+        //         sudo docker ps   
+        //         '''
+        //     }
+        // }
+    }
+}
+
+
+def dockerhub() {
+    dockerImage = docker.build("${params.dockerhubRepo}" + ":${params.tag}")
+    dockerImage.push()
+}
+
+def dockerhub_ecr() {
+    dockerImage = docker.build("${params.account}" + ":${params.account}")
+}
+
+def ecr() {
+    dockerImage = docker.build('leonardtia/devops-test-repo'+":${tag}")
+}
+
+def push() {
+    
+}
+
+
+def sanityCheck()
+{
+    println("::=========================================================================================::")
+    sh """
+    [[ -z ${params.account} ]] && echo "Parameter account name is not set" && exit 2
+    [[ -z ${params.clusterName} ]] && echo "Parameter cluster name is not set" && exit 2
+    [[ -z ${params.region} ]] && echo "Parameter region name is not set" && exit 2
+    [[ -z ${params.chartName} ]] && echo "Parameter chart name is not set" && exit 2
+    [[ -z ${params.chartVersion} ]] && echo "Parameter version is not set" && exit 2
+    [[ -z ${params.nameSpace} ]] && echo "Parameter namespace is not set" && exit 2
+    [[ -z ${params.branchName} ]] && echo "Parameter branch name is not set" && exit 2
+
+    if [[ ${params.deployWithSecret} = "true" ]]
+    then
+        [[ -z ${params.secretPath} ]] && echo "Parameter path where the secret is stored in AWS system manager is not set" && exit 2
+        [[ -z ${params.helmSet} ]] && echo "Parameter helm chart value that you want to overwrite not set" && exit 2
+    fi
+
+    if [[ ${params.normalChart} = "true" ]] && [[ ${params.deployWithSecret} = "true" ]]
+        then
+        echo "Please, check either the normalChart or deployWithSecret. You cannot chose both at the same time"
+        exit 2
+    fi
+    """
+}
