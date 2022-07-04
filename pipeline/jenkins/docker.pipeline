@@ -10,7 +10,7 @@ pipeline {
     }
     parameters {
         string (name: 'branchName', defaultValue: 'develop', description: 'The branch name docker image')
-        choice (name: 'pushMode', choices: 'aws-ecr\ndockerhub\nboth', description: 'Both will push the image to dockerhub and AWS ECR')
+        choice (name: 'pushMode', choices: '\ndockerhub\naws-ecr\nboth', description: 'Both will push the image to dockerhub and AWS ECR')
         string (name: 'dockerhubRepo', defaultValue: 'leonardtia/devops-test-repo', description: 'The Dockerhub repository where to push the image')
         string (name: 'tag', defaultValue: 'develop', description: 'The image name')
 
