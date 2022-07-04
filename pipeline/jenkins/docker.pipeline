@@ -9,7 +9,7 @@ pipeline {
         timestamps()
     }
     parameters {
-        string (name: 'branchName', defaultValue: 'main', description: 'The branch name docker image')
+        string (name: 'branchName', defaultValue: 'develop', description: 'The branch name docker image')
         choice (name: 'pushMode', choices: 'aws-ecr\ndockerhub\nboth', description: 'Both will push the image to dockerhub and AWS ECR')
         string (name: 'dockerhubRepo', defaultValue: 'leonardtia/devops-test-repo', description: 'The Dockerhub repository where to push the image')
         string (name: 'tag', defaultValue: 'develop', description: 'The image name')
@@ -42,7 +42,7 @@ pipeline {
             steps {
                 script {
                     dir("${WORKSPACE}/build/pipeline/docker") {
-                        docker.withRegistry('','tia-dockerhub-credentials' ) {
+                        docker.withRegistry('','tia-dockerhub-credentials') {
                            dockerhub()
                         }
                     }

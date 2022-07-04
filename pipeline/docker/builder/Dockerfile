@@ -2,12 +2,8 @@ FROM ubuntu:latest
 RUN apt-get update -y
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ 'Europe/Tallinn'
-RUN echo $TZ > /etc/timezone && \
-    apt-get update && apt-get install -y tzdata && \
-    rm /etc/localtime && \
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
-    dpkg-reconfigure -f noninteractive tzdata && \
-    apt-get cleanRUN apt-get update -yRUN apt-get install apt-utils -y \
+RUN apt-get update && apt-get install -y tzdata && \
+    apt-get install apt-utils -y \
     wget \
     curl \
     vim \
@@ -29,7 +25,9 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     && rm -rf aws
 
 ### AZURE CLI INSTALLATIN
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash### KUBECTL INSTALLATIN
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+### KUBECTL INSTALLATIN
 RUN curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.9/2020-08-04/bin/linux/amd64/kubectl \
     && chmod +x ./kubectl \
     && mv kubectl /usr/local/bin/
