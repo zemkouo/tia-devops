@@ -31,9 +31,9 @@ pipeline {
                 }
             }
         }
-        stage('Terraform destroy') {
+        stage('Terraform init/plan') {
             steps {
-                dir("${WORKSPACE}/scr/pipeline/terraform/resources") {
+                dir("${WORKSPACE}/scr/pipeline/terraform/resources/${params.resource}") {
                     script {
                         docker.withRegistry('','tia-dockerhub-credentials') {
                             docker.image("leonardtia/devops-test-repo:develop").inside() {
@@ -42,7 +42,31 @@ pipeline {
                                     export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
                                     export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
                                     export AWS_DEFAULT_REGION=${params.awsRegion}
-                                    terraform destroy -auto-approve 
+                                
+                                    terraform init
+                                    terraform validate
+                                    terraform plan
+                                """ 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Terraform apply') {
+            when {expression {(params.apply == true)}}
+            steps {
+                dir("${WORKSPACE}/scr/pipeline/terraform/resources/${params.resource}") {
+                    script {
+                        docker.withRegistry('','tia-dockerhub-credentials') {
+                            docker.image("leonardtia/devops-test-repo:develop").inside() {
+                                withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
+                                    sh """
+                                    export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+                                    export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+                                    export AWS_DEFAULT_REGION=${params.awsRegion}
+                                    terraform apply -auto-approve 
                                 """ 
                                 }
                             }
