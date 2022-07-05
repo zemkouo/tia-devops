@@ -1,0 +1,87 @@
+
+def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('UTC'))
+pipeline {
+    agent any
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '2', daysToKeepStr: '2'))
+        disableConcurrentBuilds()
+        timeout (time: 10, unit: 'MINUTES')
+        timestamps()
+    }
+    parameters {
+        string (name: 'branchName', defaultValue: 'develop', description: 'The branch name docker image')
+        string(name: 'docker', defaultValue: 'builder', description: 'Name of the docker image build needed')
+    }
+    stages {
+        stage ('checkout') {
+            steps {
+                dir("${WORKSPACE}/scr") {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${params.branchName}"]],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [[$class: 'LocalBranch']],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [[
+                        url: 'https://github.com/leonardtia1/tia-devops.git',
+                        credentialsId: 'tia-github-token'
+                        ]]
+                    ])
+                }
+            }
+        }
+        stage("aws access") {
+            steps {
+                script {
+                    docker.withRegistry('','tia-dockerhub-credentials') {
+                        docker.image("leonardtia/devops-test-repo:develop").inside {
+                            withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
+                            sh """
+                                    export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+                                    export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+                                    export AWS_DEFAULT_REGION=${params.awsRegion}
+                                    terraform --version
+                                    aws s3 ls
+                                """ 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage(test) {
+            steps {
+                dir("${WORKSPACE}/scr/pipeline/terraform/resources") {
+                    script {
+                        docker.withRegistry('','tia-dockerhub-credentials') {
+                            docker.image("leonardtia/devops-test-repo:develop").inside() {
+                                withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
+                                    sh """
+                                    export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+                                    export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+                                    export AWS_DEFAULT_REGION=${params.awsRegion}
+                                
+                                    terrafom init
+                                    terraform plan
+                                """ 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+def aws_credentials() {
+    withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
+        sh """
+            export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+            export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+            export AWS_DEFAULT_REGION=${params.awsRegion}
+            aws s3 ls
+            """ 
+        }
+}

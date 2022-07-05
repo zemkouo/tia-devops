@@ -36,22 +36,32 @@ pipeline {
                 }
             }
         }
-        // stage('aws access') {
-        //     steps {
-        //         script {
-        //             withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
-        //                 ecr()
-        //             }
-        //         }
-        //     }
-        // }
-        stage(test) {
+        stage("aws access") {
             steps {
                 script {
                     docker.withRegistry('','tia-dockerhub-credentials') {
-                        docker.image("leonardtia/devops-test-repo:develop").inside() {
+                        docker.image("leonardtia/devops-test-repo:develop").inside {
                             withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
-                                ecr()
+                            sh """
+                                    export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+                                    export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+                                    export AWS_DEFAULT_REGION=${params.awsRegion}
+                                    terraform --version
+                                    aws s3 ls
+                                """ 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage(test) {
+            steps {
+                dir("${WORKSPACE}/scr") {
+                    script {
+                        docker.withRegistry('','tia-dockerhub-credentials') {
+                            docker.image("leonardtia/devops-test-repo:develop").inside() {
+                                aws_credentials()
                                 sh """
                                 aws s3 ls
                                 """
@@ -61,76 +71,32 @@ pipeline {
                 }
             }
         }
-        // stage ('Building the image') {
-        //     steps {
-        //         dir("${WORKSPACE}/scr/pipeline/docker/${params.docker}") {
-        //             script {
-        //                 println('::Building the image and pushing into Dockerhub::')
-        //                 if (params.pushMode == 'dockerhub') {
-        //                     docker.withRegistry('','tia-dockerhub-credentials') {
-        //                     dockerhub()
-        //                     }
-        //                 }
-        //                 if (params.pushMode == 'aws-ecr') {
-        //                     println('::Building the image and pushing into AWS ECR::')
-        //                     withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
-        //                     ecr()
-        //                     }
-        //                 }
-        //                 if (params.pushMode == 'both') {
-        //                     withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
-        //                     println('::Building the image and pushing into Dockerhub::')
-        //                     docker.withRegistry('','tia-dockerhub-credentials') {
-        //                     dockerhub()
-
-        //                     println('::Building the image and pushing into AWS ECR::')
-        //                     ecr()
-        //                         }
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
     }
 }
 
 
-def dockerhub() {
-    dockerImage = docker.build("${params.dockerhubRepository}" + ":${params.tag}")
-    dockerImage.push()
-}
-
-def ecr() {
-    sh """
-    mkdir -p ~/.aws
-    cat <<EOF > ~/.aws/credentials
-    [default]
-    aws_access_key_id = ${AWS_ACCESS_KEY}
-    aws_secret_access_key = ${AWS_SECRET_KEY}
-EOF
-
-    cat <<EOF > ~/.aws/config
-    [default]
-    region = ${params.awsRegion}
-    output = json
-EOF
-    """
-
-    sh """
-    echo '==========================================================================================='
-    cat ~/.aws/credentials
-    cat ~/.aws/config
-    """
-
-    ecrRepositoryURL = "${params.awsAccountNumber}.dkr.ecr.${params.awsRegion}.amazonaws.com"
-    dockerImage = docker.build("${ecrRepositoryURL}" + "/" + "${params.ecrRepositoryName}" + ":${params.tag}")
+def aws_credentials() {
+    withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
         sh """
-        aws s3 ls
-        aws ecr get-login-password --region ${params.awsRegion} | docker login --username AWS --password-stdin ${ecrRepositoryURL}
-        """
-    dockerImage.push()
+            export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+            export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+            export AWS_DEFAULT_REGION=${params.awsRegion}
+            aws s3 ls
+            """ 
+        }
 }
+
+def aws_credentials() {
+    withCredentials([usernamePassword(credentialsId: 'aws-access', usernameVariable: 'AWS_ACCESS_KEY', passwordVariable: 'AWS_SECRET_KEY')]) {
+        sh """
+            export AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY}
+            export AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_KEY}
+            export AWS_DEFAULT_REGION=${params.awsRegion}
+            aws s3 ls
+            """ 
+        }
+}
+
 
 def dockerhub_ecr() {
     dockerImage = docker.build("${params.account}" + ":${params.account}")
