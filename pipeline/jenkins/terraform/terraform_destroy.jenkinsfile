@@ -11,7 +11,6 @@ pipeline {
     parameters {
         string (name: 'branchName', defaultValue: 'develop', description: 'The branch name docker image')
         string (name: 'resource', defaultValue: 'ec2', description: 'The resource name folder')
-        booleanParam (name: 'apply', defaultValue: 'false', description: 'True will run terrafrom apply')
     }
     stages {
         stage ('checkout') {

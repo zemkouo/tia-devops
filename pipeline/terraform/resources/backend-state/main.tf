@@ -5,7 +5,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "bucket" {
-  bucket = "tia-terraform-state-backend"
+  bucket = "terraform-state-backend"
   versioning {
     enabled = true
   }

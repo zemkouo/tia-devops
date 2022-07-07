@@ -4,16 +4,20 @@
 # COPY
 # ADD
 # USER
-
-# CMD
-# ENTRYPOINT
 # ENV
+# WORKDIR
+# LABEL
 # EXPOSE
 # MAINTAINER
 
+
+# CMD
+# ENTRYPOINT
+
+
 # VOLUME
-# WORKDIR
-# LABEL
+
+
 
 
 FROM ubuntu
@@ -115,3 +119,18 @@ RUN rm -rf * && \
 USER ${user}
 ENTRYPOINT ["httpd-foreground"]
 EXPOSE ${port}
+
+
+FROM centos:centos7
+LABEL Create by tia
+ENV NAME tia 
+RUN mkdir /test-copy
+RUN mkdir /test-add-local
+RUN mkdir /test-add-remote
+
+COPY ./covid19.zip /test-copy
+ADD ./covid19.zip /test-add-local
+ADD https://linux-devops-course.s3.amazonaws.com/WEB+SIDE+HTML/covid19.zip /test-add-remote
+
+WORKDIR /test-copy
+RUN useradd $NAME
