@@ -12,7 +12,7 @@ RUN rm -rf * && \
     # TOP="$(git rev-parse --show-toplevel)" && \
     # cd "${TOP}" || exit 2 &&\
     cd ../.. && \
-    cdnapplications && \
+    cd applications && \
     cp -R covid19/* /usr/local/apache2/htdocs/ 
 
 CMD ["httpd-foreground"]
