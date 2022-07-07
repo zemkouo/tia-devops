@@ -11,7 +11,7 @@ RUN rm -rf * && \
     # Change directory to top level directory in the repo
     # TOP="$(git rev-parse --show-toplevel)" && \
     # cd "${TOP}" || exit 2 &&\
-    cp -R covid19/* /usr/local/apache2/htdocs/ 
+    cp -R code/* /usr/local/apache2/htdocs/ 
 
 CMD ["httpd-foreground"]
 EXPOSE 80

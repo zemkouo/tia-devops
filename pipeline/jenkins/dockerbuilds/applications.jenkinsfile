@@ -68,7 +68,7 @@ pipeline {
         }
         stage ('Building the image') {
             steps {
-                dir("${WORKSPACE}/scr/pipeline/docker/${params.docker}") {
+                dir("${WORKSPACE}/scr/pipeline/applications/${params.docker}") {
                     script {
                         println('::Building the image and pushing into Dockerhub::')
                         if (params.pushMode == 'dockerhub') {
