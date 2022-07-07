@@ -1,5 +1,5 @@
 FROM httpd
-LABEL maintainer="Tia M"
+LABEL maintainer="Tia Leo"
 RUN apt -y update && \
     apt -y install wget && \
     apt -y install unzip
@@ -7,11 +7,11 @@ RUN apt -y update && \
 WORKDIR /usr/local/apache2/htdocs/
 
 RUN rm -rf * && \
-    wget https://linux-devops-course.s3.amazonaws.com/WEB+SIDE+HTML/covid19.zip && \
-    unzip covid19.zip && \
-    cp -R covid19/* . && \
-    rm -rf covid19.zip && \
-    rm -rf covid19
+    # Change directory to top level directory in the repo
+    TOP="$(git rev-parse --show-toplevel)" && \
+    cd "${TOP}" || exit 2 &&\
+    cd pipeline/applications && \
+    cp -R covid19/* /usr/local/apache2/htdocs/ 
 
 USER root
 CMD ["httpd-foreground"]
