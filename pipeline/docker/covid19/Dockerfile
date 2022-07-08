@@ -12,7 +12,7 @@ RUN rm -rf * && \
     # Change directory to top level directory in the repo
     # TOP="$(git rev-parse --show-toplevel)" && \
     # cd "${TOP}" || exit 2 &&\
-    rsync /usr/local/apache2/htdocs/ 
+    rsync -a /usr/local/apache2/htdocs/ 
 
 CMD ["httpd-foreground"]
 EXPOSE 80
