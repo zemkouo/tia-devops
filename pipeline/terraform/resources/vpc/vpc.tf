@@ -1,10 +1,10 @@
 resource "aws_vpc" "main" {
-  cidr_block = "${var.cidr_block}"
+  cidr_block           = var.cidr_block
   enable_dns_support   = true
   enable_dns_hostnames = true
   enable_classiclink   = false
 
-  tags = merge(map("Name", format("%s-vpc", var.tags["environment"])), var.tags)
+  tags = merge(tomap("Name", format("%s-vpc", var.tags["environment"])), var.tags)
 }
 
 ######################################################
@@ -12,7 +12,7 @@ resource "aws_vpc" "main" {
 # in public subnets
 ######################################################
 resource "aws_internet_gateway" "main" {
-  vpc_id = "${aws_vpc.main.id}"
+  vpc_id = aws_vpc.main.id
 
-  tags = merge(map("Name", format("%s-internet-gateway", var.tags["environment"])), var.tags)
+  tags = merge(tomap("Name", format("%s-internet-gateway", var.tags["environment"])), var.tags)
 }
