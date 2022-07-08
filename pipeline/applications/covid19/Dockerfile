@@ -1,5 +1,6 @@
 FROM httpd
 LABEL maintainer="Tia Leo"
+ARG port=80
 USER root
 RUN apt -y update && \
     apt -y install wget && \
@@ -7,11 +8,8 @@ RUN apt -y update && \
 
 WORKDIR /usr/local/apache2/htdocs/
 
-RUN rm -rf * && \
-    # Change directory to top level directory in the repo
-    # TOP="$(git rev-parse --show-toplevel)" && \
-    # cd "${TOP}" || exit 2 &&\
-    cp -R code/* /usr/local/apache2/htdocs/ 
+RUN rm -rf *
+ADD ./code/* /usr/local/apache2/htdocs/
 
-CMD ["httpd-foreground"]
-EXPOSE 80
+ENTRYPOINT ["httpd-foreground"]
+EXPOSE ${port}
