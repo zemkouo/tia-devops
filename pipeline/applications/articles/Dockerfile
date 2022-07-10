@@ -2,10 +2,7 @@ FROM httpd
 LABEL maintainer="ektech"
 ARG port=80
 USER root
-RUN apt -y update && \
-    apt -y install wget && \
-    apt -y install unzip
-
+RUN apt -y update 
 WORKDIR /usr/local/apache2/htdocs/
 
 RUN rm -rf *
