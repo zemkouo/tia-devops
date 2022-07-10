@@ -12,7 +12,7 @@ pipeline {
     }
     environment {
         HELM_VERSION = 'helm3'
-        HELM_ARTIFACTORY_PATH = 'http://opscert-artifactory.route53.lexis.com/artifactory/list/pecs-helm-virtual/'
+        HELM_ARTIFACTORY_PATH = ''
      }
     parameters {
          string (name: 'clusterName', defaultValue: 'eks', description: 'Name of the cluster you are deploying to dry run the chart before deploying')
